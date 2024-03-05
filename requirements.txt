@@ -36,3 +36,6 @@ scikit-learn
 aiohttp
 
 asyncio
+
+groq
+elevenlabs

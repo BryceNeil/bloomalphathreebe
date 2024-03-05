@@ -147,7 +147,7 @@ def vectorize_image(image_data):
 
     elements = []
     for x, y in ordered_points:
-
+            
 
      # Instead of finding contours, use the edge points directly
     # y_indices, x_indices = np.where(edges > 0)
