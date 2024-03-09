@@ -6,7 +6,7 @@ from app.misc.constants import SECRETS
 
 from app.models.TutoringSessionManager import TutoringSessionManager
 from app.models.LLMResponseGenerator import LLMResponseGenerator
-# from app.models.TTSHandler import TTSHandler
+from app.models.TTSHandler import TTSHandler
 # from app.models.ContextAnalysisService import  ContextAnalysisService
 # from app.models.ImageGenerator import ImageGenerator
 # from app.models.ImagePostProcessor import ImagePostProcessor
@@ -105,14 +105,14 @@ async def generate_response(websocket: WebSocket):
         print(f"Error during WebSocket communication: {e}")
         await websocket.send_text("An error occurred, please try again.")
 
-# @content_router.websocket("/ws/tts/")
-# async def tts_and_highlighting(websocket: WebSocket):
-#     await websocket.accept()
-#     tts_handler = TTSHandler(elevenlabs_api_key=SECRETS.e)
+@content_router.websocket("/ws/tts/")
+async def tts_and_highlighting(websocket: WebSocket):
+    await websocket.accept()
+    tts_handler = TTSHandler(elevenlabs_api_key=SECRETS.e)
     
-#     while True:
-#         text = await websocket.receive_text()
-#         await tts_handler.generate_and_stream_audio(text, websocket)
+    while True:
+        text = await websocket.receive_text()
+        await tts_handler.generate_and_stream_audio(text, websocket)
 
 # @content_router.websocket("/ws/context-analysis/")
 # async def context_analysis_endpoint(websocket: WebSocket):
