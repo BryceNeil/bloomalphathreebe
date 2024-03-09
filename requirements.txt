@@ -16,7 +16,6 @@ pydantic
 
 
 databases
-databases[postgresql]
 python-jose
 passlib
 python-dotenv
