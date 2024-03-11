@@ -1,18 +1,20 @@
-from fastapi import FastAPI, WebSocket, APIRouter, WebSocketDisconnect
-from typing import List
-from pydantic import BaseModel
+from fastapi import FastAPI, WebSocket, APIRouter, WebSocketDisconnect, HTTPException
+from typing import List, Dict, Any
+from pydantic import BaseModel, Field
+
 import uuid
 from app.misc.constants import SECRETS
 
 from app.models.TutoringSessionManager import TutoringSessionManager
 from app.models.LLMResponseGenerator import LLMResponseGenerator
 # from app.models.TTSHandler import TTSHandler
-# from app.models.ContextAnalysisService import  ContextAnalysisService
-# from app.models.ImageGenerator import ImageGenerator
-# from app.models.ImagePostProcessor import ImagePostProcessor
+from app.models.ContextAnalysisService import  ContextAnalysisService
+from app.models.ImageGenerator import ImageGenerator
+from app.models.ImagePostProcessor import ImagePostProcessor
 # from app.models.IllustrationSynchronizer import IllustrationSynchronizer
 
 from fastapi.middleware.cors import CORSMiddleware
+
 
 
 
@@ -34,9 +36,9 @@ content_router = APIRouter(prefix="/api/content")
 tutoring_session_manager = TutoringSessionManager()  # Create an instance of the class
 response_generator = LLMResponseGenerator()
 # tts_handler = TTSHandler()
-# context_analysis_service = ContextAnalysisService()
-# image_generator = ImageGenerator()
-# image_post_processor = ImagePostProcessor()
+context_analysis_service = ContextAnalysisService()
+image_generator = ImageGenerator()
+image_post_processor = ImagePostProcessor()
 
 # Assume visual_components is a dictionary where keys are words and values are visual component instructions
 # visual_components = {
@@ -61,12 +63,28 @@ class LLMResponse(BaseModel):
     session_id: str
     response: str
 
+class UserInput(BaseModel):
+    text: str
+
 class ImageRequest(BaseModel):
     prompts: List[str]
 
 class ImageResponse(BaseModel):
-    images: List[str]  # Assume base64 encoded images
-    metadata: List[dict]
+    images: List[str]  # URLs to the generated images
+    metadata: List[Dict[str, Any]]  # Metadata with values of any type
+
+# Define the response model to include the processed image elements
+class ImageElement(BaseModel):
+    type: str
+    id: str
+    x: int
+    y: int
+    strokeColor: str
+    width: int
+    height: int
+
+class ProcessedImageResponse(BaseModel):
+    elements: List[ImageElement]
 
 class CursorAction(BaseModel):
     action: str  # "highlight" or "point"
@@ -114,23 +132,33 @@ async def generate_response(websocket: WebSocket):
 #         text = await websocket.receive_text()
 #         await tts_handler.generate_and_stream_audio(text, websocket)
 
-# @content_router.websocket("/ws/context-analysis/")
-# async def context_analysis_endpoint(websocket: WebSocket):
-#     await context_analysis_service.handle_websocket_connection(websocket)
+@content_router.post("/context-analysis/")
+async def context_analysis_endpoint(user_input: UserInput):
+    try:
+        prompts = await context_analysis_service.process_input(user_input.text)
+        return {"prompts": prompts}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-# @content_router.post("/generate-image/", response_model=ImageResponse)
-# async def generate_image(request: ImageRequest):
-#     """
-#     Endpoint to generate fake images based on the provided prompts.
-#     """
-#     return await image_generator.generate_images(request.prompts)
+@content_router.post("/generate-image/", response_model=ImageResponse)
+async def generate_image(request: ImageRequest):
+    """
+    Endpoint to generate fake images based on the provided prompts.
+    """
+    return await image_generator.generate_images(request.prompts)
 
+@content_router.post("/process-image/", response_model=ProcessedImageResponse)
+async def process_image_endpoint(request: ImageRequest):
+    # Assuming the first prompt in the list is the image URL to be processed
+    image_url = request.prompts[0] if request.prompts else None
+    
+    # Handle case where no prompts are provided
+    if not image_url:
+        return ProcessedImageResponse(elements=[])
 
-# @content_router.post("/process-image/")
-# async def process_image(images: List[str]):
-#     # Post-process the generated images (e.g., resizing, cropping)
-#     # Return processed images and updated metadata
-#     return ImageResponse(images=images, metadata=[{"bounding_box": {"x1": 0, "y1": 0, "x2": 100, "y2": 100}, "description": "Processed dummy image"}])
+    vector_elements = await image_post_processor.process_image(image_url)
+    return ProcessedImageResponse(elements=vector_elements)
+
 
 # @content_router.websocket("/ws/sync-illustration/")
 # async def sync_illustration(websocket: WebSocket):
